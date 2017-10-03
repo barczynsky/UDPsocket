@@ -10,7 +10,7 @@ using msg_t = std::vector<uint8_t>;
 static constexpr uint16_t port = 2020;
 
 
-void test()
+void test_broadcast()
 {
 	UDPsocket::IPv4 ipaddr;
 
@@ -18,7 +18,12 @@ void test()
 	ss.open();
 	ss.bind(port);
 
-	auto t1 = std::thread([&ss, &ipaddr]
+	UDPsocket cs;
+	cs.open();
+	// cs.bind_any();
+	cs.broadcast(true);
+
+	auto t1 = std::thread([&ss, &cs, &ipaddr]
 	{
 		std::this_thread::sleep_for(1s);
 		while (true)
@@ -31,13 +36,16 @@ void test()
 			else
 			{
 				fprintf(stderr, "%s  '%s'\n", ipaddr.to_string().c_str(), data.c_str());
+				if (data.compare(0, 8, "MESSAGE?"s) == 0)
+				{
+					if (cs.send_loopback("MESSAGE!"s, port) < 0)
+					{
+						fprintf(stderr, "send_loopback(): failed\n");
+					}
+				}
 			}
 		}
 	});
-
-	UDPsocket cs;
-	cs.open();
-	// cs.bind_any();
 
 	auto t2 = std::thread([&cs, &ipaddr]
 	{
@@ -45,7 +53,7 @@ void test()
 		{
 			if (cs.send_broadcast("MESSAGE?"s, port) < 0)
 			{
-				fprintf(stderr, "send(): failed\n");
+				fprintf(stderr, "send_broadcast(): failed\n");
 			}
 			std::this_thread::sleep_for(1s);
 		}
@@ -58,6 +66,6 @@ void test()
 
 int main()
 {
-	test();
+	test_broadcast();
 	return 0;
 }

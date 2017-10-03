@@ -167,12 +167,10 @@ public:
 	template <typename T>
 	int send_broadcast(const T& message, uint16_t portno)
 	{
-		IPv4 ipaddr{ INADDR_BROADCAST, portno };
 		// // UPnP
 		// std::string msg = "M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nMAN: ssockp:discover\r\nST: ssockp:all\r\nMX: 1\r\n\r\n";
-		this->broadcast(true);
+		IPv4 ipaddr{ INADDR_BROADCAST, portno };
 		int ret = this->send(message, ipaddr);
-		this->broadcast(false);
 		return ret;
 	}
 
@@ -241,10 +239,11 @@ public:
 		IPv4(const std::string& ipaddr, uint16_t portno)
 		{
 			int ret = ::inet_pton(AF_INET, ipaddr.c_str(), (uint32_t*)octets.data());
-			if (ret < 0) {
+			if (ret > 0) {
+				port = portno;
+			} else {
 				// throw std::runtime_error(Status::AddressError)
 			}
-			port = portno;
 		}
 
 		IPv4(uint32_t ipaddr, uint16_t portno)
