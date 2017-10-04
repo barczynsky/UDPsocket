@@ -169,7 +169,7 @@ public:
 	{
 		// // UPnP
 		// std::string msg = "M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nMAN: ssockp:discover\r\nST: ssockp:all\r\nMX: 1\r\n\r\n";
-		IPv4 ipaddr{ INADDR_BROADCAST, portno };
+		IPv4 ipaddr = IPv4::Broadcast(portno);
 		int ret = this->send(message, ipaddr);
 		return ret;
 	}
@@ -177,7 +177,7 @@ public:
 	template <typename T>
 	int send_loopback(const T& message, uint16_t portno)
 	{
-		IPv4 ipaddr{ INADDR_LOOPBACK, portno };
+		IPv4 ipaddr = IPv4::Loopback(portno);
 		int ret = this->send(message, ipaddr);
 		return ret;
 	}
@@ -189,7 +189,7 @@ public:
 			return (int)Status::GetSockNameError;
 		}
 		uint16_t portno = ntohs(self_addr.sin_port);
-		IPv4 ipaddr{ INADDR_LOOPBACK, portno };
+		IPv4 ipaddr = IPv4::Loopback(portno);
 		ret = this->send(""s, ipaddr);
 		return ret;
 	}
@@ -221,6 +221,16 @@ public:
 		{
 		}
 
+		IPv4(const std::string& ipaddr, uint16_t portno)
+		{
+			int ret = ::inet_pton(AF_INET, ipaddr.c_str(), (uint32_t*)octets.data());
+			if (ret > 0) {
+				port = portno;
+			} else {
+				// throw std::runtime_error(Status::AddressError)
+			}
+		}
+
 		IPv4(const sockaddr_in_t& addr_in)
 		{
 			*(uint32_t*)octets.data() = addr_in.sin_addr.s_addr;
@@ -236,30 +246,23 @@ public:
 			return addr_in;
 		}
 
-		IPv4(const std::string& ipaddr, uint16_t portno)
-		{
-			int ret = ::inet_pton(AF_INET, ipaddr.c_str(), (uint32_t*)octets.data());
-			if (ret > 0) {
-				port = portno;
-			} else {
-				// throw std::runtime_error(Status::AddressError)
-			}
-		}
-
+private:
 		IPv4(uint32_t ipaddr, uint16_t portno)
 		{
 			*(uint32_t*)octets.data() = htonl(ipaddr);
 			port = portno;
 		}
 
+public:
+		static IPv4 Loopback(uint16_t portno) { return IPv4{ INADDR_LOOPBACK, portno }; }
+		static IPv4 Broadcast(uint16_t portno) { return IPv4{ INADDR_BROADCAST, portno }; }
+
 	public:
-		bool operator==(const IPv4& other) const
-		{
+		bool operator==(const IPv4& other) const {
 			return this->octets == other.octets && this->port == other.port;
 		}
 
-		bool operator!=(const IPv4& other) const
-		{
+		bool operator!=(const IPv4& other) const {
 			return !(*this == other);
 		}
 
@@ -274,12 +277,15 @@ public:
 			"."s + std::to_string(octets[2]) +
 			"."s + std::to_string(octets[3]);
 		}
+
 		std::string port_string() const {
 			return std::to_string(port);
 		}
+
 		std::string to_string() const {
 			return this->addr_string() + ":"s + this->port_string();
 		}
+
 		operator std::string() const { return this->to_string(); }
 	};
 
