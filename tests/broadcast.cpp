@@ -38,9 +38,9 @@ void test_broadcast()
 				fprintf(stderr, "%s  '%s'\n", ipaddr.to_string().c_str(), data.c_str());
 				if (data.compare(0, 8, "MESSAGE?"s) == 0)
 				{
-					if (cs.send_loopback("MESSAGE!"s, port) < 0)
+					if (cs.send("MESSAGE!"s, UDPsocket::IPv4::Loopback(port)) < 0)
 					{
-						fprintf(stderr, "send_loopback(): failed\n");
+						fprintf(stderr, "send(): failed\n");
 					}
 				}
 			}
@@ -51,9 +51,9 @@ void test_broadcast()
 	{
 		while (true)
 		{
-			if (cs.send_broadcast("MESSAGE?"s, port) < 0)
+			if (cs.send("MESSAGE?"s, UDPsocket::IPv4::Broadcast(port)) < 0)
 			{
-				fprintf(stderr, "send_broadcast(): failed\n");
+				fprintf(stderr, "send(): failed\n");
 			}
 			std::this_thread::sleep_for(1s);
 		}
