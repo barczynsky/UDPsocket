@@ -11,7 +11,6 @@ static constexpr uint16_t port = 2020;
 
 void test_broadcast()
 {
-	UDPsocket::IPv4 ipaddr;
 
 	UDPsocket ss;
 	ss.open();
@@ -19,14 +18,14 @@ void test_broadcast()
 
 	UDPsocket cs;
 	cs.open();
-	// cs.bind_any();
 	cs.broadcast(true);
 
-	auto t1 = std::thread([&ss, &cs, &ipaddr]
+	auto t1 = std::thread([&ss, &cs]
 	{
 		std::this_thread::sleep_for(1s);
 		while (true)
 		{
+			UDPsocket::IPv4 ipaddr;
 			std::string data;
 			if (ss.recv(data, ipaddr) < 0)
 			{
@@ -37,7 +36,8 @@ void test_broadcast()
 				fprintf(stderr, "%s  '%s'\n", ipaddr.to_string().c_str(), data.c_str());
 				if (data.compare(0, 8, "MESSAGE?"s) == 0)
 				{
-					if (cs.send("MESSAGE!"s, UDPsocket::IPv4::Loopback(port)) < 0)
+					ipaddr.port = port;
+					if (cs.send("MESSAGE!"s, ipaddr) < 0)
 					{
 						fprintf(stderr, "send(): failed\n");
 					}
@@ -46,7 +46,7 @@ void test_broadcast()
 		}
 	});
 
-	auto t2 = std::thread([&cs, &ipaddr]
+	auto t2 = std::thread([&cs]
 	{
 		while (true)
 		{
