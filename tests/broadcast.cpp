@@ -1,12 +1,11 @@
-#include "UDPsocket.h"
 #include <string>
 #include <thread>
 #include <chrono>
 #include <vector>
 using namespace std::literals;
+#include "UDPsocket.h"
 
 
-using msg_t = std::vector<uint8_t>;
 static constexpr uint16_t port = 2020;
 
 

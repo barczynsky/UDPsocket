@@ -1,3 +1,4 @@
+#pragma once
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -19,6 +20,7 @@
 #include <cstring>
 #include <array>
 #include <string>
+#include <vector>
 using namespace std::literals;
 
 
@@ -27,8 +29,9 @@ class UDPsocket
 public:
 	typedef struct sockaddr_in sockaddr_in_t;
 	typedef struct sockaddr sockaddr_t;
-	struct IPv4;
 	enum class Status;
+	struct IPv4;
+	typedef std::vector<uint8_t> msg_t;
 
 private:
 	int sock{ -1 };
@@ -60,52 +63,6 @@ public:
 		return (int)Status::OK;
 	}
 
-	int bind(uint16_t portno)
-	{
-		std::memset(&self_addr, 0, self_addr_len);
-		self_addr.sin_family = AF_INET;
-		self_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-		self_addr.sin_port = htons(portno);
-		int opt = 1;
-		int ret = ::setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
-		if (ret < 0) {
-			return (int)Status::SetSockOptError;
-		}
-		ret = ::bind(sock, (sockaddr_t*)&self_addr, self_addr_len);
-		if (ret < 0) {
-			return (int)Status::BindError;
-		}
-		return (int)Status::OK;
-	}
-
-	int bind_any()
-	{
-		return this->bind(INADDR_ANY);
-	}
-
-	int bind_any(uint16_t& portno)
-	{
-		int ret = this->bind(INPORT_ANY);
-		if (ret < 0) {
-			return (int)Status::BindError;
-		}
-		ret = ::getsockname(sock, (sockaddr_t*)&self_addr, &self_addr_len);
-		if (ret < 0) {
-			return (int)Status::GetSockNameError;
-		}
-		portno = ntohs(self_addr.sin_port);
-		return (int)Status::OK;
-	}
-
-	int broadcast(int opt)
-	{
-		int ret = ::setsockopt(sock, SOL_SOCKET, SO_BROADCAST, (const char*)&opt, sizeof(opt));
-		if (ret < 0) {
-			return (int)Status::SetSockOptError;
-		}
-		return (int)Status::OK;
-	}
-
 	int close()
 	{
 		if (sock >= 0) {
@@ -131,10 +88,71 @@ public:
 	}
 
 public:
+	int bind(const IPv4& ipaddr)
+	{
+		self_addr = ipaddr;
+		self_addr_len = sizeof(self_addr);
+		int opt = 1;
+		int ret = ::setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
+		if (ret < 0) {
+			return (int)Status::SetSockOptError;
+		}
+		ret = ::bind(sock, (sockaddr_t*)&self_addr, self_addr_len);
+		if (ret < 0) {
+			return (int)Status::BindError;
+		}
+		return (int)Status::OK;
+	}
+
+	int bind(uint16_t portno)
+	{
+		auto ipaddr = IPv4::Any(portno);
+		return this->bind(ipaddr);
+	}
+
+	int bind_any()
+	{
+		return this->bind(INPORT_ANY);
+	}
+
+	int bind_any(uint16_t& portno)
+	{
+		int ret = this->bind(INPORT_ANY);
+		if (ret < 0) {
+			return (int)Status::BindError;
+		}
+		ret = ::getsockname(sock, (sockaddr_t*)&self_addr, &self_addr_len);
+		if (ret < 0) {
+			return (int)Status::GetSockNameError;
+		}
+		portno = IPv4{ self_addr }.port;
+		return (int)Status::OK;
+	}
+
+	int connect(const IPv4& ipaddr)
+	{
+		sockaddr_in_t peer_addr = ipaddr;
+		socklen_t peer_addr_len = sizeof(peer_addr);
+		int ret = ::connect(sock, (sockaddr_t*)&peer_addr, peer_addr_len);
+		if (ret < 0) {
+			return (int)Status::ConnectError;
+		}
+		return (int)Status::OK;
+	}
+
+	int connect(uint16_t portno)
+	{
+		auto ipaddr = IPv4::Loopback(portno);
+		return this->connect(ipaddr);
+	}
+
+public:
 	template <typename T, typename = typename
 		std::enable_if<sizeof(typename T::value_type) == sizeof(uint8_t)>::type>
 	int send(const T& message, const IPv4& ipaddr)
 	{
+		// // UPnP
+		// std::string msg = "M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nMAN: ssockp:discover\r\nST: ssockp:all\r\nMX: 1\r\n\r\n";
 		sockaddr_in_t peer_addr = ipaddr;
 		socklen_t peer_addr_len = sizeof(peer_addr);
 		int ret = ::sendto(sock,
@@ -164,22 +182,14 @@ public:
 		return ret;
 	}
 
-	template <typename T>
-	int send_broadcast(const T& message, uint16_t portno)
+public:
+	int broadcast(int opt)
 	{
-		// // UPnP
-		// std::string msg = "M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nMAN: ssockp:discover\r\nST: ssockp:all\r\nMX: 1\r\n\r\n";
-		IPv4 ipaddr = IPv4::Broadcast(portno);
-		int ret = this->send(message, ipaddr);
-		return ret;
-	}
-
-	template <typename T>
-	int send_loopback(const T& message, uint16_t portno)
-	{
-		IPv4 ipaddr = IPv4::Loopback(portno);
-		int ret = this->send(message, ipaddr);
-		return ret;
+		int ret = ::setsockopt(sock, SOL_SOCKET, SO_BROADCAST, (const char*)&opt, sizeof(opt));
+		if (ret < 0) {
+			return (int)Status::SetSockOptError;
+		}
+		return (int)Status::OK;
 	}
 
 	int interrupt()
@@ -188,8 +198,8 @@ public:
 		if (ret < 0) {
 			return (int)Status::GetSockNameError;
 		}
-		uint16_t portno = ntohs(self_addr.sin_port);
-		IPv4 ipaddr = IPv4::Loopback(portno);
+		uint16_t portno = IPv4{ self_addr }.port;
+		auto ipaddr = IPv4::Loopback(portno);
 		ret = this->send(""s, ipaddr);
 		return ret;
 	}
@@ -203,6 +213,7 @@ public:
 		CloseError = -2,
 		ShutdownError = -3,
 		BindError = -4,
+		ConnectError = BindError,
 		SetSockOptError = -5,
 		GetSockNameError = -6,
 		SendError = -7,
@@ -231,6 +242,15 @@ public:
 			}
 		}
 
+		IPv4(uint8_t a, uint8_t b, uint8_t c, uint8_t d, uint16_t portno)
+		{
+			octets[0] = a;
+			octets[1] = b;
+			octets[2] = c;
+			octets[3] = d;
+			port = portno;
+		}
+
 		IPv4(const sockaddr_in_t& addr_in)
 		{
 			*(uint32_t*)octets.data() = addr_in.sin_addr.s_addr;
@@ -254,6 +274,7 @@ private:
 		}
 
 public:
+		static IPv4 Any(uint16_t portno) { return IPv4{ INADDR_ANY, portno }; }
 		static IPv4 Loopback(uint16_t portno) { return IPv4{ INADDR_LOOPBACK, portno }; }
 		static IPv4 Broadcast(uint16_t portno) { return IPv4{ INADDR_BROADCAST, portno }; }
 
@@ -307,4 +328,17 @@ public:
 #endif
 };
 
-using UDPstatus = UDPsocket::Status;
+namespace std
+{
+    template<> struct hash<UDPsocket::IPv4>
+    {
+        typedef UDPsocket::IPv4 argument_type;
+        typedef size_t result_type;
+        result_type operator()(argument_type const& ipaddr) const noexcept
+        {
+            result_type const h1{ std::hash<uint32_t>{}(*(uint32_t*)ipaddr.octets.data()) };
+            result_type const h2{ std::hash<uint16_t>{}(ipaddr.port) };
+            return h1 ^ (h2 << 1);
+        }
+    };
+}
