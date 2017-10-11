@@ -37,6 +37,8 @@ private:
 	int sock{ -1 };
 	sockaddr_in_t self_addr{};
 	socklen_t self_addr_len = sizeof(self_addr);
+	sockaddr_in_t peer_addr{};
+	socklen_t peer_addr_len = sizeof(peer_addr);
 
 public:
 	UDPsocket()
@@ -44,7 +46,8 @@ public:
 #ifdef _WIN32
 		WSAInit();
 #endif
-		std::memset(&self_addr, 0, self_addr_len);
+		self_addr = IPv4{};
+		peer_addr = IPv4{};
 	}
 
 	~UDPsocket()
@@ -56,8 +59,8 @@ public:
 	int open()
 	{
 		this->close();
-		sock = ::socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
-		if (sock <= 0) {
+		sock = (int)::socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
+		if (this->is_closed()) {
 			return (int)Status::SocketError;
 		}
 		return (int)Status::OK;
@@ -65,7 +68,7 @@ public:
 
 	int close()
 	{
-		if (sock >= 0) {
+		if (!this->is_closed()) {
 #ifdef _WIN32
 			int ret = ::shutdown(sock, SD_BOTH);
 #else
@@ -86,6 +89,8 @@ public:
 		}
 		return (int)Status::OK;
 	}
+
+	bool is_closed() const { return sock < 0; }
 
 public:
 	int bind(const IPv4& ipaddr)
@@ -131,8 +136,8 @@ public:
 
 	int connect(const IPv4& ipaddr)
 	{
-		sockaddr_in_t peer_addr = ipaddr;
-		socklen_t peer_addr_len = sizeof(peer_addr);
+		peer_addr = ipaddr;
+		peer_addr_len = sizeof(peer_addr);
 		int ret = ::connect(sock, (sockaddr_t*)&peer_addr, peer_addr_len);
 		if (ret < 0) {
 			return (int)Status::ConnectError;
@@ -146,18 +151,28 @@ public:
 		return this->connect(ipaddr);
 	}
 
+	IPv4 get_self_ip() const
+	{
+		return self_addr;
+	}
+
+	IPv4 get_peer_ip() const
+	{
+		return peer_addr;
+	}
+
 public:
 	template <typename T, typename = typename
 		std::enable_if<sizeof(typename T::value_type) == sizeof(uint8_t)>::type>
-	int send(const T& message, const IPv4& ipaddr)
+	int send(const T& message, const IPv4& ipaddr) const
 	{
 		// // UPnP
 		// std::string msg = "M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nMAN: ssockp:discover\r\nST: ssockp:all\r\nMX: 1\r\n\r\n";
-		sockaddr_in_t peer_addr = ipaddr;
-		socklen_t peer_addr_len = sizeof(peer_addr);
+		sockaddr_in_t addr_in = ipaddr;
+		socklen_t addr_in_len = sizeof(addr_in);
 		int ret = ::sendto(sock,
 			(const char*)message.data(), message.size(), 0,
-			(sockaddr_t*)&peer_addr, peer_addr_len);
+			(sockaddr_t*)&addr_in, addr_in_len);
 		if (ret < 0) {
 			return (int)Status::SendError;
 		}
@@ -166,24 +181,24 @@ public:
 
 	template <typename T, typename = typename
 		std::enable_if<sizeof(typename T::value_type) == sizeof(uint8_t)>::type>
-	int recv(T& message, IPv4& ipaddr)
+	int recv(T& message, IPv4& ipaddr) const
 	{
-		sockaddr_in_t peer_addr;
-		socklen_t peer_addr_len = sizeof(peer_addr);
+		sockaddr_in_t addr_in;
+		socklen_t addr_in_len = sizeof(addr_in);
 		typename T::value_type buffer[10 * 1024];
 		int ret = ::recvfrom(sock,
 			(char*)buffer, sizeof(buffer), 0,
-			(sockaddr_t*)&peer_addr, &peer_addr_len);
+			(sockaddr_t*)&addr_in, &addr_in_len);
 		if (ret < 0) {
 			return (int)Status::RecvError;
 		}
-		ipaddr = peer_addr;
+		ipaddr = addr_in;
 		message = { std::begin(buffer), std::begin(buffer) + ret };
 		return ret;
 	}
 
 public:
-	int broadcast(int opt)
+	int broadcast(int opt) const
 	{
 		int ret = ::setsockopt(sock, SOL_SOCKET, SO_BROADCAST, (const char*)&opt, sizeof(opt));
 		if (ret < 0) {
@@ -200,7 +215,7 @@ public:
 		}
 		uint16_t portno = IPv4{ self_addr }.port;
 		auto ipaddr = IPv4::Loopback(portno);
-		ret = this->send(""s, ipaddr);
+		ret = this->send(msg_t{}, ipaddr);
 		return ret;
 	}
 
@@ -257,7 +272,8 @@ public:
 			port = ntohs(addr_in.sin_port);
 		}
 
-		operator sockaddr_in_t() const {
+		operator sockaddr_in_t() const
+		{
 			sockaddr_in_t addr_in;
 			std::memset(&addr_in, 0, sizeof(addr_in));
 			addr_in.sin_family = AF_INET;

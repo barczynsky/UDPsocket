@@ -20,11 +20,14 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 if(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang")
 	set(AUX_CXX_FLAGS "${AUX_CXX_FLAGS} -Wall -Wextra -pedantic")
 	set(AUX_CXX_FLAGS "${AUX_CXX_FLAGS} -fcolor-diagnostics")
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${AUX_CXX_FLAGS}")
+elseif(${CMAKE_CXX_COMPILER_ID} MATCHES "MSVC")
+	set(AUX_CXX_FLAGS "${AUX_CXX_FLAGS} /Wall")
+	set(AUX_CXX_FLAGS "${AUX_CXX_FLAGS} /std:c++latest")
 endif()
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${AUX_CXX_FLAGS}")
 
 set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 
 
 # -----------------------------------------------------------------------------
