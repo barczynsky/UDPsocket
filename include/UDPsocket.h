@@ -29,9 +29,26 @@ class UDPsocket
 public:
 	typedef struct sockaddr_in sockaddr_in_t;
 	typedef struct sockaddr sockaddr_t;
-	enum class Status;
-	struct IPv4;
 	typedef std::vector<uint8_t> msg_t;
+
+public:
+	struct IPv4;
+
+	enum class Status : int
+	{
+		OK = 0,
+		SocketError = -1,
+		OpenError = SocketError,
+		CloseError = -2,
+		ShutdownError = -3,
+		BindError = -4,
+		ConnectError = BindError,
+		SetSockOptError = -5,
+		GetSockNameError = -6,
+		SendError = -7,
+		RecvError = -8,
+		// AddressError = -66,
+	};
 
 private:
 	int sock{ -1 };
@@ -220,23 +237,6 @@ public:
 	}
 
 public:
-	enum class Status : int
-	{
-		OK = 0,
-		SocketError = -1,
-		OpenError = SocketError,
-		CloseError = -2,
-		ShutdownError = -3,
-		BindError = -4,
-		ConnectError = BindError,
-		SetSockOptError = -5,
-		GetSockNameError = -6,
-		SendError = -7,
-		RecvError = -8,
-		// AddressError = -66,
-	};
-
-public:
 	struct IPv4
 	{
 		std::array<uint8_t, 4> octets{};
@@ -282,17 +282,21 @@ public:
 			return addr_in;
 		}
 
-private:
+	private:
 		IPv4(uint32_t ipaddr, uint16_t portno)
 		{
 			*(uint32_t*)octets.data() = htonl(ipaddr);
 			port = portno;
 		}
 
-public:
+	public:
 		static IPv4 Any(uint16_t portno) { return IPv4{ INADDR_ANY, portno }; }
 		static IPv4 Loopback(uint16_t portno) { return IPv4{ INADDR_LOOPBACK, portno }; }
 		static IPv4 Broadcast(uint16_t portno) { return IPv4{ INADDR_BROADCAST, portno }; }
+
+	public:
+		const uint8_t& operator[](size_t octet) const { return octets[octet]; }
+		uint8_t& operator[](size_t octet) { return octets[octet]; }
 
 	public:
 		bool operator==(const IPv4& other) const {
@@ -302,10 +306,6 @@ public:
 		bool operator!=(const IPv4& other) const {
 			return !(*this == other);
 		}
-
-	public:
-		const uint8_t& operator[](size_t octet) const { return octets[octet]; }
-		uint8_t& operator[](size_t octet) { return octets[octet]; }
 
 	public:
 		std::string addr_string() const {
