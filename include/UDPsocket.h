@@ -123,6 +123,10 @@ public:
 		if (ret < 0) {
 			return (int)Status::BindError;
 		}
+		ret = ::getsockname(sock, (sockaddr_t*)&self_addr, &self_addr_len);
+		if (ret < 0) {
+			return (int)Status::GetSockNameError;
+		}
 		return (int)Status::OK;
 	}
 
@@ -141,16 +145,13 @@ public:
 	{
 		int ret = this->bind(INPORT_ANY);
 		if (ret < 0) {
-			return (int)Status::BindError;
-		}
-		ret = ::getsockname(sock, (sockaddr_t*)&self_addr, &self_addr_len);
-		if (ret < 0) {
-			return (int)Status::GetSockNameError;
+			return ret;
 		}
 		portno = IPv4{ self_addr }.port;
 		return (int)Status::OK;
 	}
 
+public:
 	int connect(const IPv4& ipaddr)
 	{
 		peer_addr = ipaddr;
@@ -168,6 +169,7 @@ public:
 		return this->connect(ipaddr);
 	}
 
+public:
 	IPv4 get_self_ip() const
 	{
 		return self_addr;
@@ -224,16 +226,11 @@ public:
 		return (int)Status::OK;
 	}
 
-	int interrupt()
+	int interrupt() const
 	{
-		int ret = ::getsockname(sock, (sockaddr_t*)&self_addr, &self_addr_len);
-		if (ret < 0) {
-			return (int)Status::GetSockNameError;
-		}
 		uint16_t portno = IPv4{ self_addr }.port;
 		auto ipaddr = IPv4::Loopback(portno);
-		ret = this->send(msg_t{}, ipaddr);
-		return ret;
+		return this->send(msg_t{}, ipaddr);
 	}
 
 public:
