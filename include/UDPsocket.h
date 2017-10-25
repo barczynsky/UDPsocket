@@ -21,7 +21,6 @@
 #include <array>
 #include <string>
 #include <vector>
-using namespace std::literals;
 
 
 class UDPsocket
@@ -307,9 +306,9 @@ public:
 	public:
 		std::string addr_string() const {
 			return std::to_string(octets[0]) +
-			"."s + std::to_string(octets[1]) +
-			"."s + std::to_string(octets[2]) +
-			"."s + std::to_string(octets[3]);
+			 '.' + std::to_string(octets[1]) +
+			 '.' + std::to_string(octets[2]) +
+			 '.' + std::to_string(octets[3]);
 		}
 
 		std::string port_string() const {
@@ -317,7 +316,7 @@ public:
 		}
 
 		std::string to_string() const {
-			return this->addr_string() + ":"s + this->port_string();
+			return this->addr_string() + ':' + this->port_string();
 		}
 
 		operator std::string() const { return this->to_string(); }
