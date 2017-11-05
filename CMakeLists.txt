@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.8)
 project(UDPsocket)
 
 # -----------------------------------------------------------------------------
@@ -19,7 +19,7 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 # -----------------------------------------------------------------------------
 if(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang")
 	set(AUX_CXX_FLAGS "${AUX_CXX_FLAGS} -Wall -Wextra -pedantic")
-	set(AUX_CXX_FLAGS "${AUX_CXX_FLAGS} -fcolor-diagnostics")
+	set(AUX_CXX_FLAGS "${AUX_CXX_FLAGS} -fdiagnostics-color")
 elseif(${CMAKE_CXX_COMPILER_ID} MATCHES "MSVC")
 	set(AUX_CXX_FLAGS "${AUX_CXX_FLAGS} /Wall")
 	set(AUX_CXX_FLAGS "${AUX_CXX_FLAGS} /std:c++latest")
